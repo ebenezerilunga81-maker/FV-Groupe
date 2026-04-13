@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FV | Journal & Discipline</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #0e1117; --sidebar-color: #161b22; --accent-blue: #58a6ff;
+            --card-bg: #1c2128; --border-color: #30363d; --text-main: #c9d1d9; --text-dim: #8b949e;
+            --success: #238636; --error: #da3633;
+        }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-main); display: flex; }
+
+        /* SIDEBAR AVEC PROFIL EN BAS */
+        .sidebar { width: 240px; height: 100vh; background: var(--sidebar-color); border-right: 1px solid var(--border-color); position: fixed; display: flex; flex-direction: column; z-index: 100; }
+        .logo { padding: 30px; font-size: 1.2rem; color: var(--accent-blue); font-weight: bold; }
+        .nav-links { list-style: none; padding: 0; flex-grow: 1; }
+        .nav-links li a { color: var(--text-dim); text-decoration: none; display: flex; align-items: center; gap: 15px; padding: 15px 30px; transition: 0.3s; }
+        .nav-links li.active a { background: #21262d; color: var(--accent-blue); border-left: 3px solid var(--accent-blue); }
+
+        /* LE PROFIL GMAIL EN BOULE */
+        .auth-section { padding: 20px; border-top: 1px solid var(--border-color); margin-top: auto; }
+        .avatar { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--accent-blue); object-fit: cover; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-details { overflow: hidden; }
+        .user-name { font-size: 0.8rem; font-weight: bold; color: white; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+        .btn-logout { color: var(--error); text-decoration: none; font-size: 0.7rem; }
+        .btn-login { color: var(--accent-blue); text-decoration: none; font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+
+        /* CONTENU PRINCIPAL */
+        .main-content { margin-left: 240px; flex-grow: 1; padding: 25px; display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+        .analytics-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .chart-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; min-height: 250px; }
+        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+        .card-header { background: #21262d; padding: 12px 20px; font-weight: bold; color: var(--accent-blue); display: flex; justify-content: space-between; align-items: center; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; padding: 15px; border-bottom: 1px solid var(--border-color); }
+        input, select { background: #0e1117; border: 1px solid var(--border-color); color: white; padding: 8px; border-radius: 4px; font-size: 0.8rem; }
+        .btn-add { background: var(--accent-blue); border: none; color: white; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-del { background: none; border: none; color: var(--text-dim); cursor: pointer; }
+        .btn-del:hover { color: var(--error); }
+        
+        /* TABLEAU */
+        table { width: 100%; border-collapse: collapse; }
+        td, th { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.8rem; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
+        .badge-yes { background: rgba(35, 134, 54, 0.2); color: #3fb950; }
+        .badge-no { background: rgba(218, 54, 51, 0.2); color: #f85149; }
+
+        /* CALENDRIER */
+        .calendar-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+        .day { padding: 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; color: var(--text-dim); }
+        .day.active { background: var(--accent-blue); color: white; }
+        .day.has-data { border-bottom: 2px solid var(--success); color: white; }
+
+        @media (max-width: 1100px) { .sidebar { display: none; } .main-content { margin-left: 0; grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="logo">FV GROUPE</div>
+        <ul class="nav-links">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> <span>Dashboard</span></a></li>
+            <li><a href="news.html"><i class="fas fa-newspaper"></i> <span>Actualités</span></a></li>
+            <li class="active"><a href="journal.html"><i class="fas fa-chart-pie"></i> <span>Journal & Discipline</span></a></li>
+        </ul>
+
+        <div class="auth-section">
+            <div id="logged-out">
+                <a href="#" onclick="loginGoogle()" class="btn-login"><i class="fab fa-google"></i> Connexion</a>
+            </div>
+            <div id="logged-in" style="display: none;">
+                <div class="user-info">
+                    <img src="" id="user-photo" class="avatar">
+                    <div class="user-details">
+                        <div id="user-name" class="user-name">Trader</div>
+                        <a href="#" onclick="logout()" class="btn-logout">Déconnexion</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div>
+            <div class="analytics-grid">
+                <div class="chart-card"><canvas id="perfChart"></canvas></div>
+                <div class="chart-card"><canvas id="pairChart"></canvas></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span>Journal du <span id="selected-date-label">Aujourd'hui</span></span>
+                </div>
+                <div class="form-row">
+                    <input type="text" id="pair" placeholder="Paire">
+                    <input type="text" id="setup" placeholder="Setup">
+                    <input type="text" id="rr" placeholder="RR">
+                    <select id="plan">
+                        <option value="OUI">Plan : OUI</option>
+                        <option value="NON">Plan : NON</option>
+                    </select>
+                    <select id="type"><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+                    <input type="number" id="pnl" placeholder="Profit ($)">
+                    <button onclick="addTrade()" class="btn-add">Ajouter</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr><th>Paire</th><th>Setup</th><th>RR</th><th>Plan</th><th>Type</th><th>PNL</th><th></th></tr>
+                    </thead>
+                    <tbody id="trade-list"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <aside>
+            <div class="calendar-card">
+                <div style="text-align: center; font-weight: bold; margin-bottom: 10px; font-size: 0.9rem;">Avril 2026</div>
+                <div class="calendar-grid" id="calendar"></div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // CONFIG FIREBASE (À REMPLIR)
+        const firebaseConfig = {apiKey: "AIzaSyBBNDPwfgClAAL4MrUeR64lX2JbEWp9S8U",
+  authDomain: "fv-groupe.firebaseapp.com",
+  projectId: "fv-groupe",
+  storageBucket: "fv-groupe.firebasestorage.app",
+  messagingSenderId: "166804121849",
+  appId: "1:166804121849:web:fd69360dc40485dd365a28",
+  measurementId: "G-NT48ZJ9JN7"};
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const provider = new firebase.auth.GoogleAuthProvider();
+
+        let selectedDate = new Date().toISOString().split('T')[0];
+        let allTrades = {};
+        let currentUser = null;
+        let perfChart, pairChart;
+
+        // AUTHENTIFICATION ET CHARGEMENT
+        auth.onAuthStateChanged(async user => {
+            currentUser = user;
+            if (user) {
+                document.getElementById('logged-out').style.display = 'none';
+                document.getElementById('logged-in').style.display = 'block';
+                document.getElementById('user-photo').src = user.photoURL;
+                document.getElementById('user-name').textContent = user.displayName;
+                
+                // Charger depuis Firestore
+                const doc = await db.collection("users").doc(user.uid).get();
+                if (doc.exists) allTrades = doc.data().trades || {};
+            } else {
+                document.getElementById('logged-out').style.display = 'block';
+                document.getElementById('logged-in').style.display = 'none';
+                allTrades = JSON.parse(localStorage.getItem('fv_trades')) || {};
+            }
+            refreshUI();
+        });
+
+        function loginGoogle() { auth.signInWithPopup(provider); }
+        function logout() { auth.signOut().then(() => location.reload()); }
+
+        async function save() {
+            if (currentUser) {
+                await db.collection("users").doc(currentUser.uid).set({ trades: allTrades });
+            } else {
+                localStorage.setItem('fv_trades', JSON.stringify(allTrades));
+            }
+            refreshUI();
+        }
+
+        function addTrade() {
+            const pair = document.getElementById('pair').value.toUpperCase();
+            const pnl = parseFloat(document.getElementById('pnl').value);
+            if (!pair || isNaN(pnl)) return;
+
+            if (!allTrades[selectedDate]) allTrades[selectedDate] = [];
+            allTrades[selectedDate].push({
+                pair, 
+                setup: document.getElementById('setup').value || "-",
+                rr: document.getElementById('rr').value || "-",
+                plan: document.getElementById('plan').value,
+                type: document.getElementById('type').value,
+                pnl
+            });
+            save();
+            ["pair", "setup", "rr", "pnl"].forEach(id => document.getElementById(id).value = "");
+        }
+
+        function deleteTrade(index) {
+            allTrades[selectedDate].splice(index, 1);
+            if (allTrades[selectedDate].length === 0) delete allTrades[selectedDate];
+            save();
+        }
+
+        function refreshUI() {
+            // Rendu Calendrier
+            const cal = document.getElementById('calendar'); cal.innerHTML = '';
+            for(let d = 1; d <= 30; d++) {
+                let dStr = `2026-04-${String(d).padStart(2,'0')}`;
+                cal.innerHTML += `<div class="day ${dStr===selectedDate?'active':''} ${allTrades[dStr]?'has-data':''}" onclick="selectedDate='${dStr}';refreshUI();">${d}</div>`;
+            }
+            
+            // Rendu Liste
+            const list = document.getElementById('trade-list'); list.innerHTML = '';
+            (allTrades[selectedDate] || []).forEach((t, i) => {
+                list.innerHTML += `<tr>
+                    <td><b>${t.pair}</b></td><td>${t.setup}</td><td>${t.rr}</td>
+                    <td><span class="badge ${t.plan==='OUI'?'badge-yes':'badge-no'}">${t.plan}</span></td>
+                    <td>${t.type}</td><td style="color:${t.pnl>=0?'var(--success)':'var(--error)'}; font-weight:bold;">${t.pnl}$</td>
+                    <td><button onclick="deleteTrade(${i})" class="btn-del"><i class="fas fa-trash"></i></button></td>
+                </tr>`;
+            });
+            updateCharts();
+        }
+
+        function updateCharts() {
+            const ctx1 = document.getElementById('perfChart');
+            const ctx2 = document.getElementById('pairChart');
+            if(!ctx1 || !ctx2) return;
+
+            const days = [...Array(7)].map((_, i) => {
+                const d = new Date(); d.setDate(d.getDate() - (6 - i));
+                return d.toISOString().split('T')[0];
+            });
+            const data = days.map(d => (allTrades[d] || []).reduce((s, t) => s + t.pnl, 0));
+
+            if(perfChart) perfChart.destroy();
+            perfChart = new Chart(ctx1, {
+                type: 'line',
+                data: { labels: days.map(d => d.split('-')[2]), datasets: [{ label: 'PNL $', data: data, borderColor: '#58a6ff', tension: 0.2, fill: true, backgroundColor: 'rgba(88,166,255,0.05)' }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const pairs = {}; Object.values(allTrades).flat().forEach(t => pairs[t.pair] = (pairs[t.pair]||0)+1);
+            if(pairChart) pairChart.destroy();
+            pairChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: { labels: Object.keys(pairs), datasets: [{ data: Object.values(pairs), backgroundColor: ['#58a6ff', '#238636', '#da3633', '#f1e05a'] }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+    </script>
+</body>
+</html>
