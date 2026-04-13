@@ -3,86 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trader Vision | Bienvenue</title>
+    <title>FV | Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --accent: #58a6ff; --text: #c9d1d9; }
-        body { 
-            margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text);
-            display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center;
+        :root {
+            --bg-dark: #0e1117; --sidebar-color: #161b22; --accent-blue: #58a6ff;
+            --card-bg: #1c2128; --border-color: #30363d; --text-main: #c9d1d9; --text-dim: #8b949e;
         }
-        .welcome-card {
-            background: var(--card); border: 1px solid #30363d; padding: 50px;
-            border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 400px;
+
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-main); display: flex; }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 240px; height: 100vh; background: var(--sidebar-color);
+            border-right: 1px solid var(--border-color); position: fixed;
+            display: flex; flex-direction: column; z-index: 100;
         }
-        .logo-icon { font-size: 4rem; color: var(--accent); margin-bottom: 20px; }
-        h1 { margin: 0; font-size: 1.8rem; }
-        p { color: #8b949e; margin: 15px 0 30px 0; font-size: 0.95rem; }
-        
-        .btn-google {
-            background: white; color: #1f2328; border: none; padding: 12px 25px;
-            border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem;
-            display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%;
-            transition: 0.3s;
+        .logo { padding: 30px; font-size: 1.2rem; color: var(--accent-blue); font-weight: bold; }
+        .nav-links { list-style: none; padding: 0; flex-grow: 1; }
+        .nav-links li a { color: var(--text-dim); text-decoration: none; display: flex; align-items: center; gap: 15px; padding: 15px 30px; transition: 0.3s; }
+        .nav-links li.active a { background: #21262d; color: var(--accent-blue); border-left: 3px solid var(--accent-blue); }
+        .nav-links li a:hover { color: white; background: #1c2128; }
+
+        /* PROFIL EN BAS (CORRIGÉ) */
+        .auth-section {
+            padding: 20px; border-top: 1px solid var(--border-color);
+            display: flex; align-items: center; gap: 12px;
         }
-        .btn-google:hover { background: #f0f0f0; transform: scale(1.02); }
-        .btn-guest {
-            margin-top: 20px; display: inline-block; color: var(--accent);
-            text-decoration: none; font-size: 0.85rem; font-weight: bold;
+        .avatar { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--accent-blue); object-fit: cover; }
+        .user-info { overflow: hidden; }
+        .user-name { font-size: 0.85rem; font-weight: bold; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+        .btn-login-small { color: var(--accent-blue); text-decoration: none; font-size: 0.8rem; font-weight: bold; }
+
+        /* CONTENU PRINCIPAL */
+        .main-content { margin-left: 240px; flex-grow: 1; padding: 25px; width: calc(100% - 240px); }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .grid-item { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+        .card-header { background: #21262d; padding: 12px 20px; font-weight: bold; color: var(--accent-blue); }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; width: 100%; padding: 15px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="welcome-card">
-        <div class="logo-icon"><i class="fas fa-chart-line"></i></div>
-        <h1>Trader Vision</h1>
-        <p>Gérez vos performances, analysez vos setups et progressez chaque jour.</p>
+    <nav class="sidebar">
+        <div class="logo">FV Groupe</div>
+        <ul class="nav-links">
+            <li class="active"><a href="index.html"><i class="fas fa-th-large"></i> <span>Dashboard</span></a></li>
+            <li><a href="news.html"><i class="fas fa-newspaper"></i> <span>Actualités</span></a></li>
+            <li><a href="journal.html"><i class="fas fa-book"></i> <span>Journal Trading</span></a></li>
+        </ul>
         
-        <button onclick="loginGoogle()" class="btn-google">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">
-            Continuer avec Google
-        </button>
+        <div class="auth-section">
+            <div id="logged-out">
+                <a href="#" onclick="loginGoogle()" class="btn-login-small"><i class="fab fa-google"></i> Connexion</a>
+            </div>
+            <div id="logged-in" style="display: none; align-items: center; gap: 10px;">
+                <img src="https://via.placeholder.com/40" id="user-photo" class="avatar">
+                <div class="user-info">
+                    <div id="user-name" class="user-name">Trader</div>
+                    <a href="#" onclick="logout()" style="color: #da3633; text-decoration: none; font-size: 0.7rem;">Quitter</a>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-        <a href="dashboard.html" class="btn-guest">Continuer en tant que visiteur <i class="fas fa-arrow-right"></i></a>
-    </div>
+    <main class="main-content">
+        <header style="margin-bottom: 25px;">
+            <h2>Analyse Technique</h2>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="grid-item">
+                <div class="card-header">XAUUSD - OR</div>
+                <div style="height: 450px;">
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+                    {"interval": "1D", "width": "100%", "isTransparent": true, "height": "450", "symbol": "OANDA:XAUUSD", "locale": "fr", "colorTheme": "dark"}
+                    </script>
+                </div>
+            </div>
+            <div class="grid-item">
+                <div class="card-header">EURUSD - EURO / DOLLAR</div>
+                <div style="height: 450px;">
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+                    {"interval": "1D", "width": "100%", "isTransparent": true, "height": "450", "symbol": "FX:EURUSD", "locale": "fr", "colorTheme": "dark"}
+                    </script>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
 
     <script>
-        // CONFIGURATION CORRIGÉE SELON TA CAPTURE D'ÉCRAN
-        const firebaseConfig = {
-            apiKey: "AIzaSyBBNDPwfGClAAL4MrUeR64lX2JbEWp9S8U",
-            authDomain: "fv-groupe.firebaseapp.com",
-            projectId: "fv-groupe",
-            storageBucket: "fv-groupe.firebasestorage.app",
-            messagingSenderId: "166804121849",
-            appId: "1:166804121849:web:fd69360dc40485dd365a28",
-            measurementId: "G-NT407JQJN7"
-        };
-
-        firebase.initializeApp(firebaseConfig);
+        // Ta config Firebase à mettre ici
+        const firebaseConfig = {apiKey: "AIzaSyBBNDPwfgClAAL4MrUeR64lX2JbEWp9S8U",
+  authDomain: "fv-groupe.firebaseapp.com",
+  projectId: "fv-groupe",
+  storageBucket: "fv-groupe.firebasestorage.app",
+  messagingSenderId: "166804121849",
+  appId: "1:166804121849:web:fd69360dc40485dd365a28",
+  measurementId: "G-NT48ZJ9JN7"};
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const auth = firebase.auth();
-        const provider = new firebase.auth.GoogleAuthProvider();
 
-        function loginGoogle() {
-            auth.signInWithPopup(provider).then((result) => {
-                console.log("Connecté :", result.user.displayName);
-                window.location.replace("dashboard.html"); // Utilise replace pour éviter le retour arrière
-            }).catch(err => {
-                console.error("Erreur de connexion :", err.message);
-                alert("Erreur : " + err.message);
-            });
-        }
-
-        // Vérification automatique au chargement
         auth.onAuthStateChanged(user => {
             if (user) {
-                window.location.replace("dashboard.html");
+                document.getElementById('logged-out').style.display = 'none';
+                document.getElementById('logged-in').style.display = 'flex';
+                document.getElementById('user-photo').src = user.photoURL;
+                document.getElementById('user-name').textContent = user.displayName;
+            } else {
+                document.getElementById('logged-out').style.display = 'block';
+                document.getElementById('logged-in').style.display = 'none';
             }
         });
+
+        function loginGoogle() { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+        function logout() { auth.signOut(); }
     </script>
 </body>
 </html>
