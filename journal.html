@@ -151,17 +151,16 @@
 
         // AUTHENTIFICATION ET CHARGEMENT
         auth.onAuthStateChanged(async user => {
-            currentUser = user;
-            if (user) {
-                document.getElementById('logged-out').style.display = 'none';
-                document.getElementById('logged-in').style.display = 'block';
-                document.getElementById('user-photo').src = user.photoURL;
-                document.getElementById('user-name').textContent = user.displayName;
-                
-                // Charger depuis Firestore
-                const doc = await db.collection("users").doc(user.uid).get();
-                if (doc.exists) allTrades = doc.data().trades || {};
-            } else {
+    currentUser = user;
+    if (user) {
+        document.getElementById('logged-out').style.display = 'none';
+        document.getElementById('logged-in').style.display = 'block';
+        document.getElementById('user-photo').src = user.photoURL;
+        document.getElementById('user-name').textContent = user.displayName;
+        
+        const doc = await db.collection("users").doc(user.uid).get();
+        allTrades = (doc.exists && doc.data().trades) ? doc.data().trades : {};
+    } else {
                 document.getElementById('logged-out').style.display = 'block';
                 document.getElementById('logged-in').style.display = 'none';
                 allTrades = JSON.parse(localStorage.getItem('fv_trades')) || {};
@@ -173,31 +172,55 @@
         function logout() { auth.signOut().then(() => location.reload()); }
 
         async function save() {
-            if (currentUser) {
-                await db.collection("users").doc(currentUser.uid).set({ trades: allTrades });
-            } else {
-                localStorage.setItem('fv_trades', JSON.stringify(allTrades));
-            }
-            refreshUI();
-        }
+    // 1. On met d'abord à jour l'affichage localement pour que ce soit instantané
+    refreshUI(); 
 
-        function addTrade() {
-            const pair = document.getElementById('pair').value.toUpperCase();
-            const pnl = parseFloat(document.getElementById('pnl').value);
-            if (!pair || isNaN(pnl)) return;
-
-            if (!allTrades[selectedDate]) allTrades[selectedDate] = [];
-            allTrades[selectedDate].push({
-                pair, 
-                setup: document.getElementById('setup').value || "-",
-                rr: document.getElementById('rr').value || "-",
-                plan: document.getElementById('plan').value,
-                type: document.getElementById('type').value,
-                pnl
-            });
-            save();
-            ["pair", "setup", "rr", "pnl"].forEach(id => document.getElementById(id).value = "");
+    // 2. Ensuite on envoie les données au serveur en arrière-plan
+    if (currentUser) {
+        try {
+            await db.collection("users").doc(currentUser.uid).set({ trades: allTrades });
+            console.log("Données sauvegardées sur Firebase");
+        } catch (error) {
+            console.error("Erreur de sauvegarde:", error);
+            alert("Erreur de connexion. Vos données sont enregistrées localement pour le moment.");
         }
+    } else {
+        localStorage.setItem('fv_trades', JSON.stringify(allTrades));
+    }
+}
+
+       function addTrade() {
+    const pairInput = document.getElementById('pair');
+    const pnlInput = document.getElementById('pnl');
+    
+    const pair = pairInput.value.toUpperCase();
+    const pnl = parseFloat(pnlInput.value);
+
+    if (!pair || isNaN(pnl)) {
+        alert("Veuillez remplir la Paire et le Profit");
+        return;
+    }
+
+    // On s'assure que la structure existe
+    if (!allTrades) allTrades = {};
+    if (!allTrades[selectedDate]) allTrades[selectedDate] = [];
+
+    // On ajoute le trade localement
+    allTrades[selectedDate].push({
+        pair, 
+        setup: document.getElementById('setup').value || "-",
+        rr: document.getElementById('rr').value || "-",
+        plan: document.getElementById('plan').value,
+        type: document.getElementById('type').value,
+        pnl: pnl
+    });
+
+    // On lance la sauvegarde (qui rafraîchira l'UI)
+    save();
+
+    // On vide les champs
+    ["pair", "setup", "rr", "pnl"].forEach(id => document.getElementById(id).value = "");
+}
 
         function deleteTrade(index) {
             allTrades[selectedDate].splice(index, 1);
